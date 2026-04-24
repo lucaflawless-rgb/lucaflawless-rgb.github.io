@@ -9,12 +9,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-
 <style>
-/* your CSS unchanged */
 :root{
   --bg:#0a1628;
   --card:#112240;
@@ -58,7 +53,7 @@ main{
 
 .grid{
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(4,1fr);
   gap:10px;
 }
 
@@ -161,16 +156,18 @@ td,th{
 </div>
 
 <div class="card">
-<div class="grid">
-<input id="dist" placeholder="Distance (m)">
-<input id="split" placeholder="Split (1:45)">
-<input id="date" type="date">
-</div>
 
 <div class="grid">
-<input id="h" placeholder="h">
-<input id="m" placeholder="m">
-<input id="s" placeholder="s">
+  <input id="dist" placeholder="Distance (m)">
+  <input id="split" placeholder="Split (1:45)">
+  <input id="rate" placeholder="Stroke Rate (spm)">
+  <input id="date" type="date">
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(3,1fr);">
+  <input id="h" placeholder="h">
+  <input id="m" placeholder="m">
+  <input id="s" placeholder="s">
 </div>
 
 <div class="type">
@@ -186,7 +183,15 @@ td,th{
 <div class="card">
 <table>
 <thead>
-<tr><th>Distance</th><th>Split</th><th>Time</th><th>Date</th><th>Type</th></tr>
+<tr>
+  <th>Distance</th>
+  <th>Split</th>
+  <th>Rate</th>
+  <th>Time</th>
+  <th>Date</th>
+  <th>Type</th>
+  <th></th>
+</tr>
 </thead>
 <tbody id="list"></tbody>
 </table>
@@ -194,13 +199,11 @@ td,th{
 
 </main>
 
+<!-- FIREBASE + APP LOGIC -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ---------------------------
-// FIREBASE SETUP (YOUR CONFIG)
-// ---------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyDSiSeQjX9enidZoqS0yNwKRbHfjX3qGKw",
   authDomain: "rowing-8b646.firebaseapp.com",
@@ -214,9 +217,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ---------------------------
-// APP LOGIC
-// ---------------------------
 let data = { inter: [], junior: [], senior: [] };
 let crew = "inter";
 let type = "training";
@@ -248,14 +248,22 @@ window.setType = function(t) {
 window.add = async function() {
   let dist = document.getElementById('dist').value;
   let split = document.getElementById('split').value;
+  let rate = document.getElementById('rate').value;
   let date = document.getElementById('date').value;
+
   let time = (document.getElementById('h').value || 0) + ":" +
              (document.getElementById('m').value || 0) + ":" +
              (document.getElementById('s').value || 0);
 
-  if (!dist || !split || !date) return alert('fill all');
+  if (!dist || !split || !date || !rate) return alert('fill all');
 
-  data[crew].push({ dist, split, date, time, type });
+  data[crew].push({ dist, split, rate, date, time, type });
+  await save();
+  render();
+};
+
+window.deleteSession = async function(index) {
+  data[crew].splice(index, 1);
   await save();
   render();
 };
@@ -265,14 +273,21 @@ function render() {
   let el = document.getElementById('list');
   el.innerHTML = "";
 
-  arr.forEach(s => {
+  arr.forEach((s, i) => {
     el.innerHTML += `
       <tr>
         <td>${s.dist}m</td>
         <td>${s.split}</td>
+        <td>${s.rate} spm</td>
         <td>${s.time}</td>
         <td>${s.date}</td>
         <td><span class="badge ${s.type}">${s.type}</span></td>
+        <td>
+          <button onclick="deleteSession(${i})"
+            style="background:#ff5c5c;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
+            X
+          </button>
+        </td>
       </tr>`;
   });
 
@@ -282,9 +297,16 @@ function render() {
   document.getElementById('s4').textContent = arr.length ? arr[0].time : '0:00';
 }
 
+function exportX() {
+  let rows = data[crew].map(s => [s.date, s.dist, s.split, s.rate, s.time, s.type]);
+  let ws = XLSX.utils.aoa_to_sheet([['Date','Dist','Split','Rate','Time','Type'], ...rows]);
+  let wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+  XLSX.writeFile(wb, 'rowing.xlsx');
+}
+
 load().then(render);
 </script>
-
 
 </body>
 </html>
