@@ -6,7 +6,6 @@
 <title>Rowing Tracker Pro</title>
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
@@ -32,6 +31,9 @@ header{
   background:#0f2545;
   display:flex;
   justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
   border-bottom:1px solid rgba(0,180,216,0.2);
 }
 
@@ -81,6 +83,7 @@ button{
   display:flex;
   gap:10px;
   margin-bottom:15px;
+  flex-wrap:wrap;
 }
 
 .crew button.active{
@@ -100,11 +103,14 @@ button{
 table{
   width:100%;
   border-collapse:collapse;
+  overflow-x:auto;
+  display:block;
 }
 
 td,th{
   padding:10px;
   border-bottom:1px solid rgba(255,255,255,0.05);
+  white-space:nowrap;
 }
 
 .badge{
@@ -130,76 +136,116 @@ td,th{
 }
 
 .stat small{color:var(--muted);}
+
+/* Responsive */
+
+@media (max-width: 900px){
+  .grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+  .stats{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media (max-width: 600px){
+  header{
+    flex-direction:column;
+    text-align:center;
+  }
+
+  .grid{
+    grid-template-columns:1fr;
+  }
+
+  .stats{
+    grid-template-columns:1fr;
+  }
+
+  table{
+    font-size:14px;
+  }
+
+  button{
+    width:100%;
+  }
+
+  .crew{
+    justify-content:center;
+  }
+
+  .type{
+    justify-content:center;
+  }
+}
 </style>
 </head>
 
 <body>
 
 <header>
-<h1>Rowing <span>Tracker</span></h1>
-<div>sessions · splits · export</div>
+  <h1>Rowing <span>Tracker</span></h1>
+  <div>sessions · splits · export</div>
 </header>
 
 <main>
 
 <div class="crew">
-<button id="c1" onclick="setCrew('inter')" class="active">Inter</button>
-<button id="c2" onclick="setCrew('junior')">Junior</button>
-<button id="c3" onclick="setCrew('senior')">Senior</button>
+  <button id="c1" onclick="setCrew('inter')" class="active">Inter</button>
+  <button id="c2" onclick="setCrew('junior')">Junior</button>
+  <button id="c3" onclick="setCrew('senior')">Senior</button>
 </div>
 
 <div class="stats">
-<div class="stat"><small>Total Distance</small><div id="s1">0</div></div>
-<div class="stat"><small>Best Split</small><div id="s2">—</div></div>
-<div class="stat"><small>Races</small><div id="s3">0</div></div>
-<div class="stat"><small>Time</small><div id="s4">0:00</div></div>
+  <div class="stat"><small>Total Distance</small><div id="s1">0</div></div>
+  <div class="stat"><small>Best Split</small><div id="s2">—</div></div>
+  <div class="stat"><small>Races</small><div id="s3">0</div></div>
+  <div class="stat"><small>Time</small><div id="s4">0:00</div></div>
 </div>
 
 <div class="card">
+  <div class="grid">
+    <input id="dist" placeholder="Distance (m)">
+    <input id="split" placeholder="Split (1:45)">
+    <input id="rate" placeholder="Stroke Rate (spm)">
+    <input id="date" type="date">
+  </div>
 
-<div class="grid">
-  <input id="dist" placeholder="Distance (m)">
-  <input id="split" placeholder="Split (1:45)">
-  <input id="rate" placeholder="Stroke Rate (spm)">
-  <input id="date" type="date">
-</div>
+  <div class="grid" style="grid-template-columns:repeat(3,1fr);">
+    <input id="h" placeholder="h">
+    <input id="m" placeholder="m">
+    <input id="s" placeholder="s">
+  </div>
 
-<div class="grid" style="grid-template-columns:repeat(3,1fr);">
-  <input id="h" placeholder="h">
-  <input id="m" placeholder="m">
-  <input id="s" placeholder="s">
-</div>
+  <div class="type">
+    <button id="t1" class="active-training" onclick="setType('training')">Training</button>
+    <button id="t2" onclick="setType('race')">Race</button>
+  </div>
 
-<div class="type">
-<button id="t1" class="active-training" onclick="setType('training')">Training</button>
-<button id="t2" onclick="setType('race')">Race</button>
-</div>
-
-<br>
-<button class="primary" onclick="add()">Add Session</button>
-<button class="ghost" onclick="exportX()">Export Excel</button>
+  <br>
+  <button class="primary" onclick="add()">Add Session</button>
+  <button class="ghost" onclick="exportX()">Export Excel</button>
 </div>
 
 <div class="card">
-<table>
-<thead>
-<tr>
-  <th>Distance</th>
-  <th>Split</th>
-  <th>Rate</th>
-  <th>Time</th>
-  <th>Date</th>
-  <th>Type</th>
-  <th></th>
-</tr>
-</thead>
-<tbody id="list"></tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th>Distance</th>
+        <th>Split</th>
+        <th>Rate</th>
+        <th>Time</th>
+        <th>Date</th>
+        <th>Type</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="list"></tbody>
+  </table>
 </div>
 
 </main>
 
-<!-- FIREBASE + APP LOGIC -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -310,3 +356,4 @@ load().then(render);
 
 </body>
 </html>
+
