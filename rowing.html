@@ -1,1 +1,652 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rowing Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+  :root {
+    --navy: #0a1628;
+    --navy-mid: #112240;
+    --navy-light: #1a3a5c;
+    --blue: #1d6fa4;
+    --blue-bright: #2196c4;
+    --cyan: #00b4d8;
+    --cyan-light: #90e0ef;
+    --water: #caf0f8;
+    --white: #f0f8ff;
+    --muted: #7a9bb5;
+    --race: #e85d4a;
+    --race-bg: rgba(232,93,74,0.12);
+    --training: #00b4d8;
+    --training-bg: rgba(0,180,216,0.12);
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+ 
+  html { font-size: 16px; }
+ 
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+ 
+  /* ── Header ── */
+  header {
+    background: var(--navy-mid);
+    border-bottom: 1px solid rgba(0,180,216,0.15);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .oar-icon { font-size: 1.8rem; }
+  header h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--white);
+  }
+  header h1 span { color: var(--cyan); }
+  .header-sub {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+ 
+  /* ── Layout ── */
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+ 
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: rgba(0,180,216,0.1);
+    border: 1px solid rgba(0,180,216,0.15);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  .stat {
+    background: var(--navy-mid);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .stat-val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cyan);
+    font-family: var(--mono);
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+ 
+  /* ── Form card ── */
+  .form-card {
+    background: var(--navy-mid);
+    border: 1px solid rgba(0,180,216,0.15);
+    border-radius: 16px;
+    padding: 1.75rem;
+    margin-bottom: 2rem;
+  }
+  .form-heading {
+    font-size: 0.65rem;
+    font-family: var(--mono);
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 1.25rem;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span2 { grid-column: span 2; }
+  .field label {
+    font-size: 0.68rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  input[type="number"],
+  input[type="date"] {
+    background: rgba(0,180,216,0.06);
+    border: 1px solid rgba(0,180,216,0.2);
+    border-radius: 8px;
+    color: var(--white);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="number"]:focus,
+  input[type="date"]:focus {
+    border-color: var(--cyan);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+  .time-row { display: flex; gap: 6px; align-items: center; }
+  .time-row input { flex: 1; min-width: 0; }
+  .time-sep {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+ 
+  /* ── Type toggle ── */
+  .type-row { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+  .type-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.18s;
+  }
+  .type-btn.active-training {
+    background: var(--training-bg);
+    border-color: var(--training);
+    color: var(--cyan);
+  }
+  .type-btn.active-race {
+    background: var(--race-bg);
+    border-color: var(--race);
+    color: var(--race);
+  }
+ 
+  /* ── Action buttons ── */
+  .btn-row { display: flex; gap: 10px; }
+  .btn-add {
+    flex: 1;
+    padding: 12px;
+    background: var(--cyan);
+    color: var(--navy);
+    border: none;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: background 0.18s, transform 0.1s;
+  }
+  .btn-add:hover { background: var(--cyan-light); }
+  .btn-add:active { transform: scale(0.98); }
+  .btn-xlsx {
+    padding: 12px 18px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .btn-xlsx:hover { border-color: var(--cyan); color: var(--cyan); }
+ 
+  .err {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--race);
+    min-height: 18px;
+    margin-bottom: 8px;
+  }
+  .flash {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--cyan);
+    min-height: 18px;
+    margin-bottom: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .flash.show { opacity: 1; }
+ 
+  /* ── Table ── */
+  .table-section-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.75rem;
+  }
+  .table-wrap {
+    background: var(--navy-mid);
+    border: 1px solid rgba(0,180,216,0.15);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  thead th {
+    background: rgba(0,180,216,0.07);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.63rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0,180,216,0.1);
+  }
+  tbody tr { transition: background 0.12s; }
+  tbody tr:hover td { background: rgba(0,180,216,0.05); }
+  tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--white);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .mono-cell { font-family: var(--mono); color: var(--cyan-light); }
+  .dist-cell { font-weight: 700; font-size: 0.9rem; }
+  .date-cell { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-race { background: var(--race-bg); color: var(--race); border: 1px solid rgba(232,93,74,0.3); }
+  .badge-training { background: var(--training-bg); color: var(--training); border: 1px solid rgba(0,180,216,0.3); }
+  .del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.2);
+    font-size: 14px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .del-btn:hover { color: var(--race); }
+  .empty-row td {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+ 
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    header { padding: 1rem; }
+    main { padding: 1rem 1rem 3rem; }
+    .form-grid { grid-template-columns: 1fr 1fr; }
+    .field.span2 { grid-column: span 2; }
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+ 
+<header>
+  <span class="oar-icon">🚣</span>
+  <h1>Rowing <span>Tracker</span></h1>
+  <span class="header-sub">sessions · splits · export</span>
+</header>
+ 
+<main>
+ 
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat">
+      <span class="stat-label">Total distance</span>
+      <span class="stat-val" id="s-dist">0m</span>
+      <span class="stat-sub" id="s-sessions">0 sessions</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Best 500m split</span>
+      <span class="stat-val" id="s-best">—</span>
+      <span class="stat-sub" id="s-best-sub">no sessions yet</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Races</span>
+      <span class="stat-val" id="s-races">0</span>
+      <span class="stat-sub" id="s-training-sub">0 training</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Total moving time</span>
+      <span class="stat-val" id="s-time">0:00</span>
+      <span class="stat-sub">hh:mm:ss</span>
+    </div>
+  </div>
+ 
+  <!-- Form -->
+  <div class="form-card">
+    <p class="form-heading">// log a session</p>
+ 
+    <div class="form-grid">
+      <div class="field">
+        <label for="dist">Distance (m)</label>
+        <input type="number" id="dist" placeholder="2000" min="1" />
+      </div>
+      <div class="field">
+        <label>500m split</label>
+        <div class="time-row">
+          <input type="number" id="split-min" placeholder="1" min="0" max="59" />
+          <span class="time-sep">m</span>
+          <input type="number" id="split-sec" placeholder="45" min="0" max="59" />
+          <span class="time-sep">s</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="date">Date</label>
+        <input type="date" id="date" />
+      </div>
+      <div class="field span2">
+        <label>Moving time</label>
+        <div class="time-row">
+          <input type="number" id="move-h" placeholder="0" min="0" max="23" />
+          <span class="time-sep">h</span>
+          <input type="number" id="move-m" placeholder="7" min="0" max="59" />
+          <span class="time-sep">m</span>
+          <input type="number" id="move-s" placeholder="30" min="0" max="59" />
+          <span class="time-sep">s</span>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="type-row">
+      <button class="type-btn active-training" id="btn-training" onclick="setType('training')">Training</button>
+      <button class="type-btn" id="btn-race" onclick="setType('race')">Race</button>
+    </div>
+ 
+    <div class="err" id="err"></div>
+    <div class="flash" id="flash">✓ Session saved</div>
+ 
+    <div class="btn-row">
+      <button class="btn-add" onclick="addSession()">+ Add Session</button>
+      <button class="btn-xlsx" onclick="downloadXLSX()">Download Excel</button>
+    </div>
+  </div>
+ 
+  <!-- Table -->
+  <p class="table-section-label">// session log</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Distance</th>
+          <th>500m Split</th>
+          <th>Moving Time</th>
+          <th>Date</th>
+          <th>Type</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+ 
+</main>
+ 
+<script>
+  const STORE_KEY = 'rowing_tracker_v1';
+  let sessions = [];
+  let sessionType = 'training';
+ 
+  document.getElementById('date').value = new Date().toISOString().split('T')[0];
+ 
+  // ── Storage ──
+  function saveToStorage() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(sessions)); } catch(e) {}
+    showFlash();
+  }
+ 
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) sessions = JSON.parse(raw);
+    } catch(e) { sessions = []; }
+    render();
+  }
+ 
+  // ── Helpers ──
+  function fmtSplit(secs) {
+    return Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
+  }
+ 
+  function fmtTime(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    return m + ':' + String(s).padStart(2,'0');
+  }
+ 
+  function fmtDate(d) {
+    const [y, mo, day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return day + ' ' + months[parseInt(mo) - 1] + ' ' + y;
+  }
+ 
+  function showFlash() {
+    const f = document.getElementById('flash');
+    f.classList.add('show');
+    setTimeout(() => f.classList.remove('show'), 1600);
+  }
+ 
+  // ── Session type toggle ──
+  function setType(t) {
+    sessionType = t;
+    document.getElementById('btn-training').className = 'type-btn' + (t === 'training' ? ' active-training' : '');
+    document.getElementById('btn-race').className = 'type-btn' + (t === 'race' ? ' active-race' : '');
+  }
+ 
+  // ── Add session ──
+  function addSession() {
+    const dist     = parseInt(document.getElementById('dist').value);
+    const sMin     = parseInt(document.getElementById('split-min').value) || 0;
+    const sSec     = parseInt(document.getElementById('split-sec').value) || 0;
+    const mH       = parseInt(document.getElementById('move-h').value) || 0;
+    const mM       = parseInt(document.getElementById('move-m').value) || 0;
+    const mS       = parseInt(document.getElementById('move-s').value) || 0;
+    const date     = document.getElementById('date').value;
+    const err      = document.getElementById('err');
+ 
+    if (!dist || dist < 1)          { err.textContent = 'Please enter a valid distance.'; return; }
+    if (sMin === 0 && sSec === 0)   { err.textContent = 'Please enter a 500m split time.'; return; }
+    if (sSec > 59)                  { err.textContent = 'Split seconds must be 0–59.'; return; }
+    const moveSecs = mH * 3600 + mM * 60 + mS;
+    if (moveSecs === 0)             { err.textContent = 'Please enter a moving time.'; return; }
+    if (!date)                      { err.textContent = 'Please select a date.'; return; }
+    err.textContent = '';
+ 
+    sessions.push({ dist, splitSecs: sMin * 60 + sSec, moveSecs, date, type: sessionType });
+    sessions.sort((a, b) => b.date.localeCompare(a.date));
+ 
+    ['dist','split-min','split-sec','move-h','move-m','move-s'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+ 
+    saveToStorage();
+    render();
+  }
+ 
+  // ── Delete session ──
+  function deleteSession(i) {
+    if (!confirm('Delete this session?')) return;
+    sessions.splice(i, 1);
+    saveToStorage();
+    render();
+  }
+ 
+  // ── Download Excel ──
+  function downloadXLSX() {
+    const err = document.getElementById('err');
+    if (sessions.length === 0) { err.textContent = 'No sessions to export yet.'; return; }
+    err.textContent = '';
+ 
+    // Sessions sheet
+    const headers = ['Date', 'Distance (m)', '500m Split', 'Moving Time', 'Session Type'];
+    const rows = sessions.map(s => [
+      s.date,
+      s.dist,
+      fmtSplit(s.splitSecs),
+      fmtTime(s.moveSecs),
+      s.type.charAt(0).toUpperCase() + s.type.slice(1)
+    ]);
+ 
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 13 }, { wch: 14 }, { wch: 14 }];
+    ws['!autofilter'] = { ref: ws['!ref'] };
+ 
+    // Style header row
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let C = 0; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (ws[addr]) {
+        ws[addr].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' }, name: 'Arial', sz: 11 },
+          fill: { fgColor: { rgb: '0A1628' }, patternType: 'solid' },
+          alignment: { horizontal: 'center' },
+          border: { bottom: { style: 'thin', color: { rgb: '00B4D8' } } }
+        };
+      }
+    }
+ 
+    // Style data rows
+    for (let R = 1; R <= range.e.r; R++) {
+      const isRace = rows[R - 1][4] === 'Race';
+      const fillColor = R % 2 === 0 ? 'EBF5FB' : 'FFFFFF';
+      for (let C = 0; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+        ws[addr].s = {
+          font: {
+            name: 'Arial', sz: 10,
+            color: { rgb: C === 4 ? (isRace ? 'C00000' : '1D6FA4') : '000000' },
+            bold: C === 4
+          },
+          fill: { fgColor: { rgb: fillColor }, patternType: 'solid' },
+          alignment: { horizontal: C === 1 ? 'right' : 'center' },
+          border: { bottom: { style: 'hair', color: { rgb: 'CCCCCC' } } }
+        };
+      }
+    }
+ 
+    // Summary sheet
+    const total       = sessions.reduce((a, s) => a + s.dist, 0);
+    const totalMove   = sessions.reduce((a, s) => a + s.moveSecs, 0);
+    const bestSplit   = Math.min(...sessions.map(s => s.splitSecs));
+    const races       = sessions.filter(s => s.type === 'race').length;
+    const trainings   = sessions.length - races;
+ 
+    const summaryData = [
+      ['Rowing Session Summary', ''],
+      ['', ''],
+      ['Total Sessions',       sessions.length],
+      ['Total Distance (m)',   total],
+      ['Total Moving Time',    fmtTime(totalMove)],
+      ['Races',                races],
+      ['Training Sessions',    trainings],
+      ['Best 500m Split',      fmtSplit(bestSplit)],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+    ws2['!cols'] = [{ wch: 22 }, { wch: 18 }];
+ 
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+ 
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `rowing_sessions_${today}.xlsx`);
+  }
+ 
+  // ── Render ──
+  function render() {
+    const tbody = document.getElementById('tbody');
+ 
+    if (sessions.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No sessions logged yet — add your first row above</td></tr>';
+      document.getElementById('s-dist').textContent = '0m';
+      document.getElementById('s-sessions').textContent = '0 sessions';
+      document.getElementById('s-best').textContent = '—';
+      document.getElementById('s-best-sub').textContent = 'no sessions yet';
+      document.getElementById('s-races').textContent = '0';
+      document.getElementById('s-training-sub').textContent = '0 training';
+      document.getElementById('s-time').textContent = '0:00';
+      return;
+    }
+ 
+    tbody.innerHTML = sessions.map((s, i) => `
+      <tr>
+        <td class="dist-cell">${s.dist.toLocaleString()}m</td>
+        <td class="mono-cell">${fmtSplit(s.splitSecs)}</td>
+        <td class="mono-cell">${fmtTime(s.moveSecs)}</td>
+        <td class="date-cell">${fmtDate(s.date)}</td>
+        <td><span class="badge badge-${s.type}">${s.type}</span></td>
+        <td><button class="del-btn" onclick="deleteSession(${i})" title="Delete">✕</button></td>
+      </tr>
+    `).join('');
+ 
+    const total     = sessions.reduce((a, s) => a + s.dist, 0);
+    const totalMove = sessions.reduce((a, s) => a + s.moveSecs, 0);
+    const best      = sessions.reduce((a, s) => s.splitSecs < a.splitSecs ? s : a, sessions[0]);
+    const races     = sessions.filter(s => s.type === 'race').length;
+    const tr        = sessions.length - races;
+ 
+    document.getElementById('s-dist').textContent     = total >= 1000 ? (total / 1000).toFixed(1) + 'km' : total + 'm';
+    document.getElementById('s-sessions').textContent = sessions.length + ' session' + (sessions.length !== 1 ? 's' : '');
+    document.getElementById('s-best').textContent     = fmtSplit(best.splitSecs);
+    document.getElementById('s-best-sub').textContent = best.type + ' · ' + best.dist.toLocaleString() + 'm';
+    document.getElementById('s-races').textContent    = races;
+    document.getElementById('s-training-sub').textContent = tr + ' training';
+    document.getElementById('s-time').textContent     = fmtTime(totalMove);
+  }
+ 
+  loadFromStorage();
+</script>
+</body>
+</html>
