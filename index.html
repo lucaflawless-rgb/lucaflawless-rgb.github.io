@@ -9,7 +9,12 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
 <style>
+/* your CSS unchanged */
 :root{
   --bg:#0a1628;
   --card:#112240;
@@ -190,74 +195,99 @@ td,th{
 </main>
 
 <script>
+// ---------------------------
+// FIREBASE SETUP (YOUR CONFIG)
+// ---------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyDSiSeQjX9enidZoqS0yNwKRbHfjX3qGKw",
+  authDomain: "rowing-8b646.firebaseapp.com",
+  projectId: "rowing-8b646",
+  storageBucket: "rowing-8b646.firebasestorage.app",
+  messagingSenderId: "278700806317",
+  appId: "1:278700806317:web:bc2912ce38f19077ba3624",
+  measurementId: "G-0WWK23CG48"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ---------------------------
+// APP LOGIC
+// ---------------------------
 let data={inter:[],junior:[],senior:[]};
 let crew='inter';
 let type='training';
 
+async function save(){
+  await db.collection("rowing").doc("sessions").set(data);
+}
+
+async function load(){
+  const doc = await db.collection("rowing").doc("sessions").get();
+  if (doc.exists) data = doc.data();
+}
+
 function setCrew(c){
-crew=c;
-document.querySelectorAll('.crew button').forEach(b=>b.classList.remove('active'));
-document.getElementById('c1').classList.toggle('active',c==='inter');
-document.getElementById('c2').classList.toggle('active',c==='junior');
-document.getElementById('c3').classList.toggle('active',c==='senior');
-render();
+  crew=c;
+  document.querySelectorAll('.crew button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('c1').classList.toggle('active',c==='inter');
+  document.getElementById('c2').classList.toggle('active',c==='junior');
+  document.getElementById('c3').classList.toggle('active',c==='senior');
+  render();
 }
 
 function setType(t){
-type=t;
-document.getElementById('t1').className=t==='training'?'active-training':'';
-document.getElementById('t2').className=t==='race'?'active-race':'';
+  type=t;
+  document.getElementById('t1').className=t==='training'?'active-training':'';
+  document.getElementById('t2').className=t==='race'?'active-race':'';
 }
 
-function save(){localStorage.setItem('rt_pro',JSON.stringify(data));}
-function load(){const d=localStorage.getItem('rt_pro'); if(d) data=JSON.parse(d);}
+async function add(){
+  let dist=document.getElementById('dist').value;
+  let split=document.getElementById('split').value;
+  let date=document.getElementById('date').value;
+  let time=(document.getElementById('h').value||0)+":"+
+            (document.getElementById('m').value||0)+":"+
+            (document.getElementById('s').value||0);
 
-function add(){
-let dist=document.getElementById('dist').value;
-let split=document.getElementById('split').value;
-let date=document.getElementById('date').value;
-let time=(document.getElementById('h').value||0)+":"+
-(document.getElementById('m').value||0)+":"+
-(document.getElementById('s').value||0);
+  if(!dist||!split||!date) return alert('fill all');
 
-if(!dist||!split||!date) return alert('fill all');
-
-data[crew].push({dist,split,date,time,type});
-save();
-render();
+  data[crew].push({dist,split,date,time,type});
+  await save();
+  render();
 }
 
 function render(){
-let arr=data[crew];
-let el=document.getElementById('list');
-el.innerHTML='';
+  let arr=data[crew];
+  let el=document.getElementById('list');
+  el.innerHTML='';
 
-arr.forEach(s=>{
-el.innerHTML+=`<tr>
-<td>${s.dist}m</td>
-<td>${s.split}</td>
-<td>${s.time}</td>
-<td>${s.date}</td>
-<td><span class="badge ${s.type}">${s.type}</span></td>
-</tr>`;
-});
+  arr.forEach(s=>{
+    el.innerHTML+=`<tr>
+      <td>${s.dist}m</td>
+      <td>${s.split}</td>
+      <td>${s.time}</td>
+      <td>${s.date}</td>
+      <td><span class="badge ${s.type}">${s.type}</span></td>
+    </tr>`;
+  });
 
-document.getElementById('s1').textContent=arr.reduce((a,b)=>a+Number(b.dist),0)+'m';
-document.getElementById('s2').textContent=arr.length?arr[0].split:'—';
-document.getElementById('s3').textContent=arr.filter(x=>x.type==='race').length;
-document.getElementById('s4').textContent=arr.length?arr[0].time:'0:00';
+  document.getElementById('s1').textContent=arr.reduce((a,b)=>a+Number(b.dist),0)+'m';
+  document.getElementById('s2').textContent=arr.length?arr[0].split:'—';
+  document.getElementById('s3').textContent=arr.filter(x=>x.type==='race').length;
+  document.getElementById('s4').textContent=arr.length?arr[0].time:'0:00';
 }
 
 function exportX(){
-let rows=data[crew].map(s=>[s.date,s.dist,s.split,s.time,s.type]);
-let ws=XLSX.utils.aoa_to_sheet([['Date','Dist','Split','Time','Type'],...rows]);
-let wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,'Sessions');
-XLSX.writeFile(wb,'rowing.xlsx');
+  let rows=data[crew].map(s=>[s.date,s.dist,s.split,s.time,s.type]);
+  let ws=XLSX.utils.aoa_to_sheet([['Date','Dist','Split','Time','Type'],...rows]);
+  let wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Sessions');
+  XLSX.writeFile(wb,'rowing.xlsx');
 }
 
-load();
-render();
+// Load from Firebase then render
+load().then(render);
 </script>
 
 </body>
