@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rowing Tracker Pro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg:#0a1628;
+  --card:#112240;
+  --accent:#00b4d8;
+  --accent2:#90e0ef;
+  --text:#e6f1ff;
+  --muted:#7a9bb5;
+  --race:#ff5c5c;
+}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Syne',sans-serif;
+}
+
+header{
+  padding:20px;
+  background:#0f2545;
+  display:flex;
+  justify-content:space-between;
+  border-bottom:1px solid rgba(0,180,216,0.2);
+}
+
+h1 span{color:var(--accent);}
+
+main{
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+}
+
+.card{
+  background:var(--card);
+  padding:20px;
+  border-radius:14px;
+  margin-bottom:20px;
+  border:1px solid rgba(0,180,216,0.2);
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:#0a1628;
+  color:white;
+}
+
+button{
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.primary{background:var(--accent); color:black;}
+.ghost{background:none; border:1px solid rgba(255,255,255,0.2); color:var(--text);}
+
+.crew{
+  display:flex;
+  gap:10px;
+  margin-bottom:15px;
+}
+
+.crew button.active{
+  background:var(--accent);
+  color:black;
+}
+
+.type{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+.type button.active-training{background:rgba(0,180,216,0.2); color:var(--accent);}
+.type button.active-race{background:rgba(255,80,80,0.2); color:var(--race);}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+td,th{
+  padding:10px;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+
+.badge{
+  padding:4px 10px;
+  border-radius:20px;
+  font-size:12px;
+}
+
+.training{background:rgba(0,180,216,0.2); color:var(--accent);}
+.race{background:rgba(255,80,80,0.2); color:var(--race);}
+
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-bottom:20px;
+}
+
+.stat{
+  background:#0f2545;
+  padding:15px;
+  border-radius:10px;
+}
+
+.stat small{color:var(--muted);}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Rowing <span>Tracker</span></h1>
+<div>sessions · splits · export</div>
+</header>
+
+<main>
+
+<div class="crew">
+<button id="c1" onclick="setCrew('inter')" class="active">Inter</button>
+<button id="c2" onclick="setCrew('junior')">Junior</button>
+<button id="c3" onclick="setCrew('senior')">Senior</button>
+</div>
+
+<div class="stats">
+<div class="stat"><small>Total Distance</small><div id="s1">0</div></div>
+<div class="stat"><small>Best Split</small><div id="s2">—</div></div>
+<div class="stat"><small>Races</small><div id="s3">0</div></div>
+<div class="stat"><small>Time</small><div id="s4">0:00</div></div>
+</div>
+
+<div class="card">
+<div class="grid">
+<input id="dist" placeholder="Distance (m)">
+<input id="split" placeholder="Split (1:45)">
+<input id="date" type="date">
+</div>
+
+<div class="grid">
+<input id="h" placeholder="h">
+<input id="m" placeholder="m">
+<input id="s" placeholder="s">
+</div>
+
+<div class="type">
+<button id="t1" class="active-training" onclick="setType('training')">Training</button>
+<button id="t2" onclick="setType('race')">Race</button>
+</div>
+
+<br>
+<button class="primary" onclick="add()">Add Session</button>
+<button class="ghost" onclick="exportX()">Export Excel</button>
+</div>
+
+<div class="card">
+<table>
+<thead>
+<tr><th>Distance</th><th>Split</th><th>Time</th><th>Date</th><th>Type</th></tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+</div>
+
+</main>
+
+<script>
+let data={inter:[],junior:[],senior:[]};
+let crew='inter';
+let type='training';
+
+function setCrew(c){
+crew=c;
+document.querySelectorAll('.crew button').forEach(b=>b.classList.remove('active'));
+document.getElementById('c1').classList.toggle('active',c==='inter');
+document.getElementById('c2').classList.toggle('active',c==='junior');
+document.getElementById('c3').classList.toggle('active',c==='senior');
+render();
+}
+
+function setType(t){
+type=t;
+document.getElementById('t1').className=t==='training'?'active-training':'';
+document.getElementById('t2').className=t==='race'?'active-race':'';
+}
+
+function save(){localStorage.setItem('rt_pro',JSON.stringify(data));}
+function load(){const d=localStorage.getItem('rt_pro'); if(d) data=JSON.parse(d);}
+
+function add(){
+let dist=document.getElementById('dist').value;
+let split=document.getElementById('split').value;
+let date=document.getElementById('date').value;
+let time=(document.getElementById('h').value||0)+":"+
+(document.getElementById('m').value||0)+":"+
+(document.getElementById('s').value||0);
+
+if(!dist||!split||!date) return alert('fill all');
+
+data[crew].push({dist,split,date,time,type});
+save();
+render();
+}
+
+function render(){
+let arr=data[crew];
+let el=document.getElementById('list');
+el.innerHTML='';
+
+arr.forEach(s=>{
+el.innerHTML+=`<tr>
+<td>${s.dist}m</td>
+<td>${s.split}</td>
+<td>${s.time}</td>
+<td>${s.date}</td>
+<td><span class="badge ${s.type}">${s.type}</span></td>
+</tr>`;
+});
+
+document.getElementById('s1').textContent=arr.reduce((a,b)=>a+Number(b.dist),0)+'m';
+document.getElementById('s2').textContent=arr.length?arr[0].split:'—';
+document.getElementById('s3').textContent=arr.filter(x=>x.type==='race').length;
+document.getElementById('s4').textContent=arr.length?arr[0].time:'0:00';
+}
+
+function exportX(){
+let rows=data[crew].map(s=>[s.date,s.dist,s.split,s.time,s.type]);
+let ws=XLSX.utils.aoa_to_sheet([['Date','Dist','Split','Time','Type'],...rows]);
+let wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,'Sessions');
+XLSX.writeFile(wb,'rowing.xlsx');
+}
+
+load();
+render();
+</script>
+
+</body>
+</html>
